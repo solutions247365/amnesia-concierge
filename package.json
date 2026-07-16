@@ -1,0 +1,21 @@
+{
+  "name": "amnesia-concierge",
+  "version": "1.0.0",
+  "description": "A concierge service delivered whilst operating on amnesiac or other heightened OPSEC operating systems or software rules.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:41729/git/solutions247365/amnesia-concierge"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "express": "^5.2.1"
+  }
+}

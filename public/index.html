@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amnesia Concierge</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface-hover: #1a1a1a;
+      --border: #222;
+      --text: #e0e0e0;
+      --text-dim: #777;
+      --accent: #c8c8c8;
+      --danger: #a33;
+      --success: #3a7;
+      --warning: #b80;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .summary-bar {
+      display: flex;
+      gap: 24px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .summary-bar span strong {
+      color: var(--text);
+    }
+
+    nav {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    nav button {
+      flex: 1;
+      padding: 12px 16px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-dim);
+      font-size: 13px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.2s;
+    }
+
+    nav button:hover { color: var(--text); }
+    nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    main { max-width: 900px; margin: 0 auto; padding: 24px; }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    input, textarea {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 14px;
+      border-radius: 4px;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #444;
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    button {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 16px;
+      font-size: 13px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    button:hover { background: var(--surface-hover); }
+
+    .btn-primary { background: #222; border-color: #333; }
+    .btn-danger { color: var(--danger); }
+    .btn-small { padding: 4px 10px; font-size: 12px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: border-color 0.15s;
+    }
+
+    .card:hover { border-color: #333; }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .card-meta {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    .card-body {
+      font-size: 14px;
+      line-height: 1.5;
+      color: #bbb;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .link-url {
+      color: var(--accent);
+      text-decoration: none;
+      word-break: break-all;
+      font-size: 13px;
+    }
+
+    .link-url:hover { text-decoration: underline; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-active { background: #1a2f1a; color: var(--success); }
+    .badge-finalized { background: #2a2010; color: var(--warning); }
+    .badge-overdue { background: #2a1515; color: var(--danger); }
+
+    .form-group { margin-bottom: 12px; }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .form-row .form-group { flex: 1; }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      width: 100%;
+      max-width: 500px;
+      margin: 20px;
+    }
+
+    .modal h2 {
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 16px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .activity-item {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .activity-item:last-child { border-bottom: none; }
+
+    .activity-action {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .activity-summary { font-size: 14px; }
+    .activity-time { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      text-transform: none;
+      font-size: 13px;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Amnesia Concierge</h1>
+  <div class="summary-bar" id="summaryBar"></div>
+</header>
+
+<nav>
+  <button class="active" data-tab="notes">Notes</button>
+  <button data-tab="links">Links</button>
+  <button data-tab="deadlines">Deadlines</button>
+  <button data-tab="activity">Activity</button>
+</nav>
+
+<main>
+  <!-- Notes -->
+  <div class="section active" id="notes">
+    <div class="toolbar">
+      <button class="btn-primary" onclick="openNoteModal()">+ New Note</button>
+    </div>
+    <div id="notesList"></div>
+  </div>
+
+  <!-- Links -->
+  <div class="section" id="links">
+    <div class="toolbar">
+      <input type="text" id="linkInput" placeholder="Paste a URL and press Enter..." onkeydown="if(event.key==='Enter')addLink()">
+      <button class="btn-primary" onclick="addLink()">Add</button>
+    </div>
+    <div id="linksList"></div>
+  </div>
+
+  <!-- Deadlines -->
+  <div class="section" id="deadlines">
+    <div class="toolbar">
+      <button class="btn-primary" onclick="openDeadlineModal()">+ New Deadline</button>
+    </div>
+    <div id="deadlinesList"></div>
+  </div>
+
+  <!-- Activity -->
+  <div class="section" id="activity">
+    <div id="activityList"></div>
+  </div>
+</main>
+
+<!-- Note Modal -->
+<div class="modal-overlay" id="noteModal">
+  <div class="modal">
+    <h2 id="noteModalTitle">New Note</h2>
+    <input type="hidden" id="noteId">
+    <div class="form-group">
+      <label>Title</label>
+      <input type="text" id="noteTitle" placeholder="Note title...">
+    </div>
+    <div class="form-group">
+      <label>Content</label>
+      <textarea id="noteContent" rows="6" placeholder="Write your note..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button onclick="closeNoteModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveNote()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Deadline Modal -->
+<div class="modal-overlay" id="deadlineModal">
+  <div class="modal">
+    <h2>New Deadline</h2>
+    <div class="form-group">
+      <label>Title</label>
+      <input type="text" id="deadlineTitle" placeholder="What's due?">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="deadlineDesc" rows="3" placeholder="Details..."></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Due Date</label>
+        <input type="date" id="deadlineDate">
+      </div>
+      <div class="form-group">
+        <label>Due Time</label>
+        <input type="time" id="deadlineTime" value="23:59">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="checkbox-group">
+        <input type="checkbox" id="deadlineAutoFinalize" checked>
+        <label for="deadlineAutoFinalize">Auto-finalize when overdue</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button onclick="closeDeadlineModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveDeadline()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = '/api';
+
+  // --- Tabs ---
+  document.querySelectorAll('nav button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+      loadTab(btn.dataset.tab);
+    });
+  });
+
+  function loadTab(tab) {
+    if (tab === 'notes') loadNotes();
+    else if (tab === 'links') loadLinks();
+    else if (tab === 'deadlines') loadDeadlines();
+    else if (tab === 'activity') loadActivity();
+  }
+
+  // --- Summary ---
+  async function loadSummary() {
+    const res = await fetch(`${API}/summary`);
+    const data = await res.json();
+    document.getElementById('summaryBar').innerHTML = `
+      <span><strong>${data.notes}</strong> notes</span>
+      <span><strong>${data.links}</strong> links</span>
+      <span><strong>${data.deadlines.active}</strong> active</span>
+      <span><strong>${data.deadlines.overdue}</strong> overdue</span>
+    `;
+  }
+
+  // --- Notes ---
+  async function loadNotes() {
+    const res = await fetch(`${API}/notes`);
+    const notes = await res.json();
+    const el = document.getElementById('notesList');
+    if (!notes.length) { el.innerHTML = '<div class="empty-state">No notes yet. Create one to get started.</div>'; return; }
+    el.innerHTML = notes.map(n => `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${esc(n.title || 'Untitled')}</div>
+            <div class="card-meta">${timeAgo(n.updated_at)}</div>
+          </div>
+          <div class="card-actions">
+            <button class="btn-small" onclick="editNote(${n.id})">Edit</button>
+            <button class="btn-small btn-danger" onclick="deleteNote(${n.id})">Delete</button>
+          </div>
+        </div>
+        <div class="card-body">${esc(n.content)}</div>
+      </div>
+    `).join('');
+  }
+
+  function openNoteModal(id) {
+    document.getElementById('noteId').value = id || '';
+    document.getElementById('noteTitle').value = '';
+    document.getElementById('noteContent').value = '';
+    document.getElementById('noteModalTitle').textContent = id ? 'Edit Note' : 'New Note';
+    document.getElementById('noteModal').classList.add('active');
+    document.getElementById('noteTitle').focus();
+  }
+
+  function closeNoteModal() {
+    document.getElementById('noteModal').classList.remove('active');
+  }
+
+  async function editNote(id) {
+    const res = await fetch(`${API}/notes`);
+    const notes = await res.json();
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+    openNoteModal(id);
+    document.getElementById('noteTitle').value = note.title;
+    document.getElementById('noteContent').value = note.content;
+  }
+
+  async function saveNote() {
+    const id = document.getElementById('noteId').value;
+    const title = document.getElementById('noteTitle').value;
+    const content = document.getElementById('noteContent').value;
+    if (id) {
+      await fetch(`${API}/notes/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({title, content}) });
+    } else {
+      await fetch(`${API}/notes`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({title, content}) });
+    }
+    closeNoteModal();
+    loadNotes();
+    loadSummary();
+  }
+
+  async function deleteNote(id) {
+    if (!confirm('Delete this note?')) return;
+    await fetch(`${API}/notes/${id}`, { method: 'DELETE' });
+    loadNotes();
+    loadSummary();
+  }
+
+  // --- Links ---
+  async function loadLinks() {
+    const res = await fetch(`${API}/links`);
+    const links = await res.json();
+    const el = document.getElementById('linksList');
+    if (!links.length) { el.innerHTML = '<div class="empty-state">No links saved. Paste a URL above.</div>'; return; }
+    el.innerHTML = links.map(l => `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <a href="${esc(l.url)}" target="_blank" rel="noopener" class="link-url">${esc(l.url)}</a>
+            ${l.title ? `<div class="card-title" style="margin-top:4px">${esc(l.title)}</div>` : ''}
+            <div class="card-meta">${timeAgo(l.created_at)}</div>
+          </div>
+          <div class="card-actions">
+            <button class="btn-small" onclick="navigator.clipboard.writeText('${esc(l.url)}')">Copy</button>
+            <button class="btn-small btn-danger" onclick="deleteLink(${l.id})">Delete</button>
+          </div>
+        </div>
+        ${l.description ? `<div class="card-body">${esc(l.description)}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  async function addLink() {
+    const input = document.getElementById('linkInput');
+    const url = input.value.trim();
+    if (!url) return;
+    await fetch(`${API}/links`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({url}) });
+    input.value = '';
+    loadLinks();
+    loadSummary();
+  }
+
+  async function deleteLink(id) {
+    if (!confirm('Delete this link?')) return;
+    await fetch(`${API}/links/${id}`, { method: 'DELETE' });
+    loadLinks();
+    loadSummary();
+  }
+
+  // --- Deadlines ---
+  async function loadDeadlines() {
+    const res = await fetch(`${API}/deadlines`);
+    const deadlines = await res.json();
+    const el = document.getElementById('deadlinesList');
+    if (!deadlines.length) { el.innerHTML = '<div class="empty-state">No deadlines set. Add one to start tracking.</div>'; return; }
+    el.innerHTML = deadlines.map(d => {
+      const isOverdue = d.status === 'active' && new Date(d.due_at) <= new Date();
+      const badgeClass = d.status === 'finalized' ? 'badge-finalized' : isOverdue ? 'badge-overdue' : 'badge-active';
+      const badgeText = d.status === 'finalized' ? 'Finalized' : isOverdue ? 'Overdue' : 'Active';
+      return `
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">${esc(d.title)} <span class="badge ${badgeClass}">${badgeText}</span></div>
+              <div class="card-meta">Due: ${new Date(d.due_at).toLocaleString()}${d.auto_finalize ? ' · Auto-finalize' : ''}</div>
+            </div>
+            <div class="card-actions">
+              ${d.status === 'active' ? `<button class="btn-small" onclick="finalizeDeadline(${d.id})">Finalize</button>` : ''}
+              <button class="btn-small btn-danger" onclick="deleteDeadline(${d.id})">Delete</button>
+            </div>
+          </div>
+          ${d.description ? `<div class="card-body">${esc(d.description)}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function openDeadlineModal() {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('deadlineTitle').value = '';
+    document.getElementById('deadlineDesc').value = '';
+    document.getElementById('deadlineDate').value = tomorrow.toISOString().split('T')[0];
+    document.getElementById('deadlineTime').value = '23:59';
+    document.getElementById('deadlineAutoFinalize').checked = true;
+    document.getElementById('deadlineModal').classList.add('active');
+    document.getElementById('deadlineTitle').focus();
+  }
+
+  function closeDeadlineModal() {
+    document.getElementById('deadlineModal').classList.remove('active');
+  }
+
+  async function saveDeadline() {
+    const title = document.getElementById('deadlineTitle').value;
+    const description = document.getElementById('deadlineDesc').value;
+    const date = document.getElementById('deadlineDate').value;
+    const time = document.getElementById('deadlineTime').value;
+    const auto_finalize = document.getElementById('deadlineAutoFinalize').checked;
+    if (!title || !date) return;
+    const due_at = `${date}T${time || '23:59'}:00`;
+    await fetch(`${API}/deadlines`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({title, description, due_at, auto_finalize}) });
+    closeDeadlineModal();
+    loadDeadlines();
+    loadSummary();
+  }
+
+  async function finalizeDeadline(id) {
+    await fetch(`${API}/deadlines/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({status: 'finalized'}) });
+    loadDeadlines();
+    loadSummary();
+  }
+
+  async function deleteDeadline(id) {
+    if (!confirm('Delete this deadline?')) return;
+    await fetch(`${API}/deadlines/${id}`, { method: 'DELETE' });
+    loadDeadlines();
+    loadSummary();
+  }
+
+  // --- Activity ---
+  async function loadActivity() {
+    const res = await fetch(`${API}/activity`);
+    const items = await res.json();
+    const el = document.getElementById('activityList');
+    if (!items.length) { el.innerHTML = '<div class="empty-state">No activity yet. Start adding notes, links, or deadlines.</div>'; return; }
+    el.innerHTML = items.map(a => `
+      <div class="activity-item">
+        <div>
+          <div class="activity-action">${esc(a.action)} ${esc(a.entity_type)}</div>
+          <div class="activity-summary">${esc(a.summary)}</div>
+        </div>
+        <div class="activity-time">${timeAgo(a.created_at)}</div>
+      </div>
+    `).join('');
+  }
+
+  // --- Utils ---
+  function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
+  }
+
+  function timeAgo(dateStr) {
+    const diff = Date.now() - new Date(dateStr + 'Z').getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  }
+
+  // --- Init ---
+  loadSummary();
+  loadNotes();
+</script>
+
+</body>
+</html>
