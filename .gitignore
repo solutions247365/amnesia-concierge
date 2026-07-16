@@ -1,2 +1,4 @@
 node_modules/
 concierge.db
+concierge.db-shm
+concierge.db-wal
