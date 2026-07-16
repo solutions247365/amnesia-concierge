@@ -13,6 +13,12 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS scratchpad (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL DEFAULT '',
@@ -72,6 +78,35 @@ function autoFinalizeDeadlines() {
 }
 
 setInterval(autoFinalizeDeadlines, 60_000);
+
+// --- Scratchpad ---
+app.get('/api/scratchpad', (req, res) => {
+  const entries = db.prepare('SELECT * FROM scratchpad ORDER BY created_at DESC').all();
+  res.json(entries);
+});
+
+app.post('/api/scratchpad', (req, res) => {
+  const { content } = req.body;
+  if (!content || !content.trim()) return res.status(400).json({ error: 'Content required' });
+  const result = db.prepare('INSERT INTO scratchpad (content) VALUES (?)').run(content.trim());
+  const entry = db.prepare('SELECT * FROM scratchpad WHERE id = ?').get(result.lastInsertRowid);
+  logActivity('created', 'scratchpad', entry.id, `Scratchpad entry added`);
+  res.status(201).json(entry);
+});
+
+app.delete('/api/scratchpad/:id', (req, res) => {
+  const entry = db.prepare('SELECT * FROM scratchpad WHERE id = ?').get(req.params.id);
+  if (!entry) return res.status(404).json({ error: 'Not found' });
+  db.prepare('DELETE FROM scratchpad WHERE id = ?').run(req.params.id);
+  logActivity('deleted', 'scratchpad', entry.id, `Scratchpad entry removed`);
+  res.json({ ok: true });
+});
+
+app.delete('/api/scratchpad', (req, res) => {
+  db.prepare('DELETE FROM scratchpad').run();
+  logActivity('cleared', 'scratchpad', null, 'Scratchpad cleared');
+  res.json({ ok: true });
+});
 
 // --- Notes ---
 app.get('/api/notes', (req, res) => {

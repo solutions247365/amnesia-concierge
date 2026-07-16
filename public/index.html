@@ -259,6 +259,68 @@
     .activity-summary { font-size: 14px; }
     .activity-time { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
 
+    .scratchpad-input textarea {
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+    }
+
+    .scratchpad-input textarea:focus {
+      border-color: #444;
+    }
+
+    .scratchpad-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 12px 0;
+    }
+
+    .scratchpad-hint {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .scratchpad-entry {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .scratchpad-entry:hover { border-color: #333; }
+
+    .scratchpad-entry-content {
+      flex: 1;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .scratchpad-entry-time {
+      font-size: 11px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+
+    .scratchpad-entry-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
     .empty-state {
       text-align: center;
       padding: 60px 20px;
@@ -292,15 +354,28 @@
 </header>
 
 <nav>
-  <button class="active" data-tab="notes">Notes</button>
+  <button class="active" data-tab="scratchpad">Scratchpad</button>
+  <button data-tab="notes">Notes</button>
   <button data-tab="links">Links</button>
   <button data-tab="deadlines">Deadlines</button>
   <button data-tab="activity">Activity</button>
 </nav>
 
 <main>
+  <!-- Scratchpad -->
+  <div class="section active" id="scratchpad">
+    <div class="scratchpad-input">
+      <textarea id="scratchpadText" rows="4" placeholder="Jot something down... press Enter to save, Shift+Enter for new line"></textarea>
+    </div>
+    <div class="scratchpad-toolbar">
+      <span class="scratchpad-hint" id="scratchpadCount">0 entries</span>
+      <button class="btn-small btn-danger" onclick="clearScratchpad()">Clear All</button>
+    </div>
+    <div id="scratchpadList"></div>
+  </div>
+
   <!-- Notes -->
-  <div class="section active" id="notes">
+  <div class="section" id="notes">
     <div class="toolbar">
       <button class="btn-primary" onclick="openNoteModal()">+ New Note</button>
     </div>
@@ -399,8 +474,58 @@
     });
   });
 
+  // --- Scratchpad ---
+  document.getElementById('scratchpadText').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      addScratchpadEntry();
+    }
+  });
+
+  async function addScratchpadEntry() {
+    const textarea = document.getElementById('scratchpadText');
+    const content = textarea.value.trim();
+    if (!content) return;
+    await fetch(`${API}/scratchpad`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({content}) });
+    textarea.value = '';
+    loadScratchpad();
+    loadSummary();
+  }
+
+  async function loadScratchpad() {
+    const res = await fetch(`${API}/scratchpad`);
+    const entries = await res.json();
+    const el = document.getElementById('scratchpadList');
+    document.getElementById('scratchpadCount').textContent = `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}`;
+    if (!entries.length) { el.innerHTML = '<div class="empty-state">Nothing here yet. Start typing above.</div>'; return; }
+    el.innerHTML = entries.map(e => `
+      <div class="scratchpad-entry">
+        <div class="scratchpad-entry-content">${esc(e.content)}</div>
+        <div class="scratchpad-entry-actions">
+          <div class="scratchpad-entry-time">${timeAgo(e.created_at)}</div>
+          <button class="btn-small" onclick="navigator.clipboard.writeText(${JSON.stringify(e.content)})">Copy</button>
+          <button class="btn-small btn-danger" onclick="deleteScratchpadEntry(${e.id})">×</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function deleteScratchpadEntry(id) {
+    await fetch(`${API}/scratchpad/${id}`, { method: 'DELETE' });
+    loadScratchpad();
+    loadSummary();
+  }
+
+  async function clearScratchpad() {
+    if (!confirm('Clear all scratchpad entries?')) return;
+    await fetch(`${API}/scratchpad`, { method: 'DELETE' });
+    loadScratchpad();
+    loadSummary();
+  }
+
   function loadTab(tab) {
-    if (tab === 'notes') loadNotes();
+    if (tab === 'scratchpad') loadScratchpad();
+    else if (tab === 'notes') loadNotes();
     else if (tab === 'links') loadLinks();
     else if (tab === 'deadlines') loadDeadlines();
     else if (tab === 'activity') loadActivity();
@@ -634,7 +759,7 @@
 
   // --- Init ---
   loadSummary();
-  loadNotes();
+  loadScratchpad();
 </script>
 
 </body>
