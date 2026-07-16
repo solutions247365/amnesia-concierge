@@ -321,6 +321,91 @@
       gap: 4px;
     }
 
+    .scratchpad-summary {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+
+    .scratchpad-summary:empty { display: none; }
+
+    .scratchpad-summary h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      margin-bottom: 14px;
+    }
+
+    .summary-stats {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .summary-stat {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .summary-stat strong {
+      color: var(--text);
+    }
+
+    .summary-previews {
+      list-style: none;
+      padding: 0;
+    }
+
+    .summary-previews li {
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: #aaa;
+    }
+
+    .summary-previews li:last-child { border-bottom: none; }
+
+    .summary-previews li::before {
+      content: '·';
+      margin-right: 8px;
+      color: var(--text-dim);
+    }
+
+    .summary-urls {
+      margin-top: 10px;
+    }
+
+    .summary-urls a {
+      display: block;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 12px;
+      padding: 2px 0;
+      word-break: break-all;
+    }
+
+    .summary-urls a:hover { text-decoration: underline; }
+
+    .summary-keywords {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .summary-keyword {
+      background: #1a1a1a;
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
     .empty-state {
       text-align: center;
       padding: 60px 20px;
@@ -372,6 +457,7 @@
       <button class="btn-small btn-danger" onclick="clearScratchpad()">Clear All</button>
     </div>
     <div id="scratchpadList"></div>
+    <div class="scratchpad-summary" id="scratchpadSummary"></div>
   </div>
 
   <!-- Notes -->
@@ -497,7 +583,11 @@
     const entries = await res.json();
     const el = document.getElementById('scratchpadList');
     document.getElementById('scratchpadCount').textContent = `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}`;
-    if (!entries.length) { el.innerHTML = '<div class="empty-state">Nothing here yet. Start typing above.</div>'; return; }
+    if (!entries.length) {
+      el.innerHTML = '<div class="empty-state">Nothing here yet. Start typing above.</div>';
+      document.getElementById('scratchpadSummary').innerHTML = '';
+      return;
+    }
     el.innerHTML = entries.map(e => `
       <div class="scratchpad-entry">
         <div class="scratchpad-entry-content">${esc(e.content)}</div>
@@ -508,6 +598,49 @@
         </div>
       </div>
     `).join('');
+    loadScratchpadSummary();
+  }
+
+  async function loadScratchpadSummary() {
+    const res = await fetch(`${API}/scratchpad/summary`);
+    const data = await res.json();
+    const el = document.getElementById('scratchpadSummary');
+    if (!data.summary) { el.innerHTML = ''; return; }
+    const s = data.summary;
+
+    const elapsed = Math.round((new Date(s.timeRange.last + 'Z') - new Date(s.timeRange.first + 'Z')) / 60000);
+    const timeStr = elapsed < 1 ? 'just now' : elapsed < 60 ? `${elapsed} min` : `${Math.round(elapsed / 60)}h ${elapsed % 60}m`;
+
+    let html = `<h3>Session Summary</h3>`;
+    html += `<div class="summary-stats">`;
+    html += `<span class="summary-stat"><strong>${s.totalEntries}</strong> entries</span>`;
+    html += `<span class="summary-stat"><strong>${s.totalWords}</strong> words</span>`;
+    html += `<span class="summary-stat">span: <strong>${timeStr}</strong></span>`;
+    html += `</div>`;
+
+    html += `<ul class="summary-previews">`;
+    for (const p of s.entryPreviews) {
+      html += `<li>${esc(p)}</li>`;
+    }
+    html += `</ul>`;
+
+    if (s.urls.length) {
+      html += `<div class="summary-urls">`;
+      for (const u of s.urls) {
+        html += `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>`;
+      }
+      html += `</div>`;
+    }
+
+    if (s.topKeywords.length) {
+      html += `<div class="summary-keywords">`;
+      for (const k of s.topKeywords) {
+        html += `<span class="summary-keyword">${esc(k)}</span>`;
+      }
+      html += `</div>`;
+    }
+
+    el.innerHTML = html;
   }
 
   async function deleteScratchpadEntry(id) {

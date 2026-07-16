@@ -102,6 +102,59 @@ app.delete('/api/scratchpad/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/scratchpad/summary', (req, res) => {
+  const entries = db.prepare('SELECT * FROM scratchpad ORDER BY created_at ASC').all();
+  if (!entries.length) return res.json({ summary: null });
+
+  const totalEntries = entries.length;
+  const totalWords = entries.reduce((sum, e) => sum + e.content.split(/\s+/).filter(Boolean).length, 0);
+  const first = entries[0].created_at;
+  const last = entries[entries.length - 1].created_at;
+
+  const urlPattern = /https?:\/\/[^\s]+/g;
+  const urls = [];
+  const keywords = {};
+  const lines = [];
+
+  for (const entry of entries) {
+    const found = entry.content.match(urlPattern);
+    if (found) urls.push(...found);
+
+    const words = entry.content
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .split(/\s+/)
+      .filter(w => w.length > 3);
+    for (const w of words) {
+      keywords[w] = (keywords[w] || 0) + 1;
+    }
+
+    const firstLine = entry.content.split('\n')[0].trim();
+    if (firstLine.length > 60) {
+      lines.push(firstLine.substring(0, 57) + '...');
+    } else {
+      lines.push(firstLine);
+    }
+  }
+
+  const topKeywords = Object.entries(keywords)
+    .filter(([, count]) => count >= 1)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([word]) => word);
+
+  res.json({
+    summary: {
+      totalEntries,
+      totalWords,
+      timeRange: { first, last },
+      urls,
+      topKeywords,
+      entryPreviews: lines,
+    },
+  });
+});
+
 app.delete('/api/scratchpad', (req, res) => {
   db.prepare('DELETE FROM scratchpad').run();
   logActivity('cleared', 'scratchpad', null, 'Scratchpad cleared');
