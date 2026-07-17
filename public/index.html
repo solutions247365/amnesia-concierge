@@ -406,6 +406,115 @@
       color: var(--text-dim);
     }
 
+    .device-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 6px;
+      display: grid;
+      grid-template-columns: 130px 140px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      font-size: 13px;
+      transition: border-color 0.15s;
+    }
+
+    .device-row:hover { border-color: #333; }
+    .device-row.flagged { border-left: 3px solid var(--danger); }
+
+    .device-ip { font-family: monospace; font-size: 13px; }
+    .device-mac { font-family: monospace; font-size: 12px; color: var(--text-dim); }
+    .device-vendor { font-size: 12px; color: #999; }
+    .device-label { font-size: 13px; color: var(--accent); font-weight: 500; }
+    .device-seen { font-size: 11px; color: var(--text-dim); }
+
+    .device-info { min-width: 0; }
+
+    .device-actions {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .scan-paste-area {
+      margin-bottom: 16px;
+    }
+
+    .scan-paste-area textarea {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      min-height: 120px;
+      line-height: 1.4;
+    }
+
+    .scan-result {
+      background: #0d1a0d;
+      border: 1px solid #1a2f1a;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--success);
+    }
+
+    .scan-history-item {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .scan-history-item:last-child { border-bottom: none; }
+
+    .network-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+
+    .network-toolbar .view-toggle {
+      margin-left: auto;
+      display: flex;
+      gap: 4px;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .filter-bar input {
+      max-width: 250px;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .device-edit-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .device-edit-overlay.active { display: flex; }
+
+    @media (max-width: 700px) {
+      .device-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+    }
+
     .empty-state {
       text-align: center;
       padding: 60px 20px;
@@ -440,6 +549,7 @@
 
 <nav>
   <button class="active" data-tab="scratchpad">Scratchpad</button>
+  <button data-tab="network">Network</button>
   <button data-tab="notes">Notes</button>
   <button data-tab="links">Links</button>
   <button data-tab="deadlines">Deadlines</button>
@@ -458,6 +568,32 @@
     </div>
     <div id="scratchpadList"></div>
     <div class="scratchpad-summary" id="scratchpadSummary"></div>
+  </div>
+
+  <!-- Network -->
+  <div class="section" id="network">
+    <div class="network-toolbar">
+      <button class="btn-primary" onclick="toggleScanInput()">+ Import Scan</button>
+      <button class="btn-small" onclick="showScanHistory()">Scan History</button>
+      <div class="view-toggle">
+        <button class="btn-small" onclick="setNetFilter('all')" id="filterAll">All</button>
+        <button class="btn-small" onclick="setNetFilter('flagged')" id="filterFlagged">Flagged</button>
+        <button class="btn-small" onclick="setNetFilter('new')" id="filterNew">New</button>
+      </div>
+    </div>
+    <div class="scan-paste-area" id="scanPasteArea" style="display:none">
+      <textarea id="scanOutput" placeholder="Paste your arp-scan output here...&#10;&#10;Example: sudo arp-scan --interface=wlan0 --localnet"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn-primary" onclick="importScan()">Import</button>
+        <button onclick="toggleScanInput()">Cancel</button>
+      </div>
+    </div>
+    <div id="scanResult" class="scan-result" style="display:none"></div>
+    <div class="filter-bar">
+      <input type="text" id="deviceSearch" placeholder="Filter by IP, MAC, vendor, or label..." oninput="renderDevices()">
+    </div>
+    <div id="deviceCount" style="font-size:12px;color:var(--text-dim);margin-bottom:10px"></div>
+    <div id="deviceList"></div>
   </div>
 
   <!-- Notes -->
@@ -542,6 +678,46 @@
     <div class="modal-actions">
       <button onclick="closeDeadlineModal()">Cancel</button>
       <button class="btn-primary" onclick="saveDeadline()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Device Edit Modal -->
+<div class="device-edit-overlay" id="deviceEditModal">
+  <div class="modal">
+    <h2>Edit Device</h2>
+    <input type="hidden" id="editDeviceId">
+    <div style="font-family:monospace;font-size:13px;margin-bottom:12px;color:var(--text-dim)">
+      <span id="editDeviceIp"></span> &mdash; <span id="editDeviceMac"></span>
+    </div>
+    <div class="form-group">
+      <label>Label</label>
+      <input type="text" id="editDeviceLabel" placeholder="e.g. Living Room TV, Dad's Phone...">
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea id="editDeviceNotes" rows="4" placeholder="Any observations, nmap results, etc..."></textarea>
+    </div>
+    <div class="form-group">
+      <div class="checkbox-group">
+        <input type="checkbox" id="editDeviceFlagged">
+        <label for="editDeviceFlagged">Flag as suspicious</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button onclick="closeDeviceEdit()">Cancel</button>
+      <button class="btn-primary" onclick="saveDeviceEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scan History Modal -->
+<div class="device-edit-overlay" id="scanHistoryModal">
+  <div class="modal" style="max-width:600px">
+    <h2>Scan History</h2>
+    <div id="scanHistoryList"></div>
+    <div class="modal-actions">
+      <button onclick="closeScanHistory()">Close</button>
     </div>
   </div>
 </div>
@@ -658,10 +834,176 @@
 
   function loadTab(tab) {
     if (tab === 'scratchpad') loadScratchpad();
+    else if (tab === 'network') loadNetwork();
     else if (tab === 'notes') loadNotes();
     else if (tab === 'links') loadLinks();
     else if (tab === 'deadlines') loadDeadlines();
     else if (tab === 'activity') loadActivity();
+  }
+
+  // --- Network Recon ---
+  let allDevices = [];
+  let netFilter = 'all';
+
+  function setNetFilter(f) {
+    netFilter = f;
+    document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('filter' + f.charAt(0).toUpperCase() + f.slice(1));
+    if (btn) btn.classList.add('active');
+    renderDevices();
+  }
+
+  async function loadNetwork() {
+    const res = await fetch(`${API}/network/devices`);
+    allDevices = await res.json();
+    renderDevices();
+  }
+
+  function renderDevices() {
+    const el = document.getElementById('deviceList');
+    const searchVal = (document.getElementById('deviceSearch').value || '').toLowerCase();
+    let filtered = allDevices;
+
+    if (netFilter === 'flagged') filtered = filtered.filter(d => d.flagged);
+    if (netFilter === 'new') filtered = filtered.filter(d => d.times_seen === 1);
+
+    if (searchVal) {
+      filtered = filtered.filter(d =>
+        d.ip.includes(searchVal) ||
+        d.mac.includes(searchVal) ||
+        d.vendor.toLowerCase().includes(searchVal) ||
+        d.label.toLowerCase().includes(searchVal) ||
+        d.notes.toLowerCase().includes(searchVal)
+      );
+    }
+
+    document.getElementById('deviceCount').textContent = `${filtered.length} of ${allDevices.length} devices`;
+
+    if (!filtered.length) {
+      el.innerHTML = allDevices.length
+        ? '<div class="empty-state">No devices match your filter.</div>'
+        : '<div class="empty-state">No devices discovered yet. Import an arp-scan to get started.</div>';
+      return;
+    }
+
+    el.innerHTML = filtered.map(d => `
+      <div class="device-row${d.flagged ? ' flagged' : ''}">
+        <div>
+          <div class="device-ip">${esc(d.ip)}</div>
+          <div class="device-mac">${esc(d.mac)}</div>
+        </div>
+        <div class="device-info">
+          ${d.label ? `<div class="device-label">${esc(d.label)}</div>` : ''}
+          <div class="device-vendor">${esc(d.vendor || 'Unknown vendor')}</div>
+        </div>
+        <div>
+          <div class="device-seen">Seen ${d.times_seen}x</div>
+          <div class="device-seen">Last: ${timeAgo(d.last_seen_at)}</div>
+          ${d.notes ? `<div class="device-seen" style="color:#888;margin-top:2px">${esc(d.notes.substring(0,60))}${d.notes.length>60?'...':''}</div>` : ''}
+        </div>
+        <div class="device-actions">
+          <button class="btn-small" onclick="openDeviceEdit(${d.id})">Edit</button>
+          <button class="btn-small btn-danger" onclick="deleteDevice(${d.id})">×</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function toggleScanInput() {
+    const el = document.getElementById('scanPasteArea');
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    document.getElementById('scanResult').style.display = 'none';
+  }
+
+  async function importScan() {
+    const raw = document.getElementById('scanOutput').value;
+    if (!raw.trim()) return;
+    const res = await fetch(`${API}/network/scan`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ raw_output: raw })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || 'Import failed');
+      return;
+    }
+    document.getElementById('scanOutput').value = '';
+    document.getElementById('scanPasteArea').style.display = 'none';
+    const resultEl = document.getElementById('scanResult');
+    resultEl.textContent = `Imported ${data.devices_found} devices (${data.new_devices} new, ${data.updated_devices} seen before)`;
+    resultEl.style.display = 'block';
+    setTimeout(() => resultEl.style.display = 'none', 5000);
+    loadNetwork();
+    loadSummary();
+  }
+
+  function openDeviceEdit(id) {
+    const dev = allDevices.find(d => d.id === id);
+    if (!dev) return;
+    document.getElementById('editDeviceId').value = id;
+    document.getElementById('editDeviceIp').textContent = dev.ip;
+    document.getElementById('editDeviceMac').textContent = dev.mac;
+    document.getElementById('editDeviceLabel').value = dev.label;
+    document.getElementById('editDeviceNotes').value = dev.notes;
+    document.getElementById('editDeviceFlagged').checked = !!dev.flagged;
+    document.getElementById('deviceEditModal').classList.add('active');
+    document.getElementById('editDeviceLabel').focus();
+  }
+
+  function closeDeviceEdit() {
+    document.getElementById('deviceEditModal').classList.remove('active');
+  }
+
+  async function saveDeviceEdit() {
+    const id = document.getElementById('editDeviceId').value;
+    const label = document.getElementById('editDeviceLabel').value;
+    const notes = document.getElementById('editDeviceNotes').value;
+    const flagged = document.getElementById('editDeviceFlagged').checked;
+    await fetch(`${API}/network/devices/${id}`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ label, notes, flagged })
+    });
+    closeDeviceEdit();
+    loadNetwork();
+  }
+
+  async function deleteDevice(id) {
+    if (!confirm('Remove this device from inventory?')) return;
+    await fetch(`${API}/network/devices/${id}`, { method: 'DELETE' });
+    loadNetwork();
+    loadSummary();
+  }
+
+  async function showScanHistory() {
+    const res = await fetch(`${API}/network/scans`);
+    const scans = await res.json();
+    const el = document.getElementById('scanHistoryList');
+    if (!scans.length) {
+      el.innerHTML = '<div class="empty-state">No scans imported yet.</div>';
+    } else {
+      el.innerHTML = scans.map(s => `
+        <div class="scan-history-item">
+          <div>
+            <div style="font-size:13px">${esc(s.interface || 'unknown')} &mdash; ${s.responded} devices</div>
+            <div style="font-size:12px;color:var(--text-dim)">${s.host_count} hosts scanned in ${s.duration_sec}s &middot; ${timeAgo(s.created_at)}</div>
+          </div>
+          <button class="btn-small btn-danger" onclick="deleteScan(${s.id})">×</button>
+        </div>
+      `).join('');
+    }
+    document.getElementById('scanHistoryModal').classList.add('active');
+  }
+
+  function closeScanHistory() {
+    document.getElementById('scanHistoryModal').classList.remove('active');
+  }
+
+  async function deleteScan(id) {
+    if (!confirm('Delete this scan record?')) return;
+    await fetch(`${API}/network/scans/${id}`, { method: 'DELETE' });
+    showScanHistory();
   }
 
   // --- Summary ---
@@ -669,6 +1011,8 @@
     const res = await fetch(`${API}/summary`);
     const data = await res.json();
     document.getElementById('summaryBar').innerHTML = `
+      <span><strong>${data.devices}</strong> devices</span>
+      ${data.flagged ? `<span style="color:var(--danger)"><strong>${data.flagged}</strong> flagged</span>` : ''}
       <span><strong>${data.notes}</strong> notes</span>
       <span><strong>${data.links}</strong> links</span>
       <span><strong>${data.deadlines.active}</strong> active</span>
